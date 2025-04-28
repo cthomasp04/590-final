@@ -1,0 +1,80 @@
+Process 0 (that is, the initial process):
+(
+    {1}let K_prime: key = F(K) in
+    {2}event AliceTransformsKey(K,K_prime);
+    {3}new aliceNonce: nonce;
+    {4}out(secure_c, K_prime);
+    {5}let auth_tag: bitstring = mac(nonce2bit(aliceNonce),authKey) in
+    {6}out(c, (aliceNonce,auth_tag));
+    {7}let sessionKey: key = deriveKey(K_prime,aliceNonce) in
+    {8}event SessionKeyCreated(K_prime,aliceNonce);
+    {9}out(c, senc(secretData,sessionKey))
+) | (
+    {10}in(secure_c, k_received: key);
+    {11}in(c, (receivedNonce: nonce,tag: bitstring));
+    {12}if (tag = mac(nonce2bit(receivedNonce),authKey)) then
+    {13}event BobReceivesKey(k_received);
+    {14}let sessionKey_1: key = deriveKey(k_received,receivedNonce) in
+    {15}in(c, encrypted_msg: bitstring);
+    {16}let msg: bitstring = sdec(encrypted_msg,sessionKey_1) in
+    {17}event SecureCommsEstablished(k_received,receivedNonce)
+)
+
+--  Process 1 (that is, process 0, with let moved downwards):
+(
+    {1}let K_prime: key = F(K) in
+    {2}event AliceTransformsKey(K,K_prime);
+    {3}new aliceNonce: nonce;
+    {4}out(secure_c, K_prime);
+    {5}let auth_tag: bitstring = mac(nonce2bit(aliceNonce),authKey) in
+    {6}out(c, (aliceNonce,auth_tag));
+    {8}event SessionKeyCreated(K_prime,aliceNonce);
+    {7}let sessionKey: key = deriveKey(K_prime,aliceNonce) in
+    {9}out(c, senc(secretData,sessionKey))
+) | (
+    {10}in(secure_c, k_received: key);
+    {11}in(c, (receivedNonce: nonce,tag: bitstring));
+    {12}if (tag = mac(nonce2bit(receivedNonce),authKey)) then
+    {13}event BobReceivesKey(k_received);
+    {15}in(c, encrypted_msg: bitstring);
+    {14}let sessionKey_1: key = deriveKey(k_received,receivedNonce) in
+    {16}let msg: bitstring = sdec(encrypted_msg,sessionKey_1) in
+    {17}event SecureCommsEstablished(k_received,receivedNonce)
+)
+
+-- Query not attacker(K[]) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query not attacker(K[])
+RESULT not attacker(K[]) is true.
+-- Query not attacker(secretData[]) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query not attacker(secretData[])
+RESULT not attacker(secretData[]) is true.
+-- Query event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K[],x)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K[],x))
+goal reachable: b-event(AliceTransformsKey(K[],F(K[]))) -> event(BobReceivesKey(F(K[])))
+RESULT event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K[],x)) is true.
+-- Query event(SecureCommsEstablished(k,n)) ==> event(SessionKeyCreated(k,n)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query event(SecureCommsEstablished(k,n)) ==> event(SessionKeyCreated(k,n))
+goal reachable: b-event(SessionKeyCreated(F(K[]),aliceNonce[])) -> event(SecureCommsEstablished(F(K[]),aliceNonce[]))
+RESULT event(SecureCommsEstablished(k,n)) ==> event(SessionKeyCreated(k,n)) is true.
+
+--------------------------------------------------------------
+Verification summary:
+
+Query not attacker(K[]) is true.
+
+Query not attacker(secretData[]) is true.
+
+Query event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K[],x)) is true.
+
+Query event(SecureCommsEstablished(k,n)) ==> event(SessionKeyCreated(k,n)) is true.
+
+--------------------------------------------------------------
+

@@ -1,0 +1,52 @@
+(* Key Transformation Protocol with Authentication *)
+free c: channel.
+
+(* Types *)
+type key.
+type nonce.
+
+(* Secret keys *)
+free K: key [private].
+free authKey: key [private]. (* Shared authentication key *)
+
+(* Cryptographic primitives *)
+fun F(key): key.
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+
+(* Function to convert key to bitstring for MAC calculation *)
+fun key2bit(key): bitstring.
+
+(* MAC function *)
+fun mac(bitstring, key): bitstring. 
+
+(* Events *)
+event KeyTransformed(key, key).
+event KeyReceived(key).
+event AuthBegin(key).
+event AuthEnd(key).
+
+(* Security queries *)
+query attacker(K).
+query x: key; event(AuthEnd(x)) ==> event(AuthBegin(x)).
+
+(* Alice process *)
+let alice =
+    let K_prime = F(K) in
+    event KeyTransformed(K, K_prime);
+    event AuthBegin(K_prime);
+    (* Authenticate the transformed key - convert K_prime to bitstring first *)
+    let auth_tag = mac(key2bit(K_prime), authKey) in
+    out(c, (K_prime, auth_tag)).
+
+(* Bob process *)
+let bob =
+    in(c, (k_received: key, tag: bitstring));
+    (* Verify the authentication tag *)
+    if tag = mac(key2bit(k_received), authKey) then
+    event KeyReceived(k_received);
+    event AuthEnd(k_received).
+
+(* Main process *)
+process
+    alice | bob

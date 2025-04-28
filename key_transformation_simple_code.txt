@@ -1,0 +1,52 @@
+# ProVerif Model: key_transformation_simple.pv
+# Generated on: Sat Apr 26 15:32:17 EDT 2025
+# ----------------------------------------
+
+  1: (* Key Transformation Protocol - Simplified Version *)
+  2: (* Channels *)
+  3: free c: channel.
+  4: 
+  5: (* Types *)
+  6: type key.
+  7: 
+  8: (* Secret key K that should remain confidential *)
+  9: free K: key [private].
+ 10: 
+ 11: (* Transformation function F *)
+ 12: fun F(key): key.
+ 13: 
+ 14: (* Events *)
+ 15: event KeyTransformed(key, key).
+ 16: event KeyReceived(key).
+ 17: 
+ 18: (* Basic cryptographic operations *)
+ 19: fun senc(bitstring, key): bitstring.
+ 20: reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+ 21: 
+ 22: (* Security queries *)
+ 23: query attacker(K).
+ 24: query x: key, y: key; 
+ 25:       event(KeyTransformed(x, y)) ==> event(KeyReceived(y)).
+ 26: 
+ 27: (* Alice process *)
+ 28: let alice =
+ 29:     let K_prime = F(K) in
+ 30:     event KeyTransformed(K, K_prime);
+ 31:     out(c, K_prime).
+ 32: 
+ 33: (* Bob process *)
+ 34: let bob =
+ 35:     in(c, k_received: key);
+ 36:     event KeyReceived(k_received).
+ 37: 
+ 38: (* Main process *)
+ 39: process
+ 40:     alice | bob
+
+# ----------------------------------------
+# Summary:
+# - Total lines: 40
+# - Type declarations: 1
+# - Function declarations: 2
+# - Events: 4
+# - Processes: 3

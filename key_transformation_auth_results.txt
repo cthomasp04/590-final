@@ -1,0 +1,35 @@
+Process 0 (that is, the initial process):
+(
+    {1}let K_prime: key = F(K) in
+    {2}event KeyTransformed(K,K_prime);
+    {3}event AuthBegin(K_prime);
+    {4}let auth_tag: bitstring = mac(key2bit(K_prime),authKey) in
+    {5}out(c, (K_prime,auth_tag))
+) | (
+    {6}in(c, (k_received: key,tag: bitstring));
+    {7}if (tag = mac(key2bit(k_received),authKey)) then
+    {8}event KeyReceived(k_received);
+    {9}event AuthEnd(k_received)
+)
+
+-- Query not attacker(K[]) in process 0.
+Translating the process into Horn clauses...
+Completing...
+Starting query not attacker(K[])
+RESULT not attacker(K[]) is true.
+-- Query event(AuthEnd(x)) ==> event(AuthBegin(x)) in process 0.
+Translating the process into Horn clauses...
+Completing...
+Starting query event(AuthEnd(x)) ==> event(AuthBegin(x))
+goal reachable: b-event(AuthBegin(F(K[]))) -> event(AuthEnd(F(K[])))
+RESULT event(AuthEnd(x)) ==> event(AuthBegin(x)) is true.
+
+--------------------------------------------------------------
+Verification summary:
+
+Query not attacker(K[]) is true.
+
+Query event(AuthEnd(x)) ==> event(AuthBegin(x)) is true.
+
+--------------------------------------------------------------
+

@@ -1,0 +1,168 @@
+# ProVerif Model: opaque_authenticated.pv
+# Generated on: Sat Apr 26 15:32:17 EDT 2025
+# ----------------------------------------
+
+  1: (* Simplified but accurate OPAQUE Protocol Model *)
+  2: 
+  3: (* Channels *)
+  4: free c: channel.
+  5: 
+  6: (* Types *)
+  7: type key.
+  8: type blinded_value.
+  9: type element.
+ 10: type identity.
+ 11: 
+ 12: (* Long-term keys and data *)
+ 13: free password: key [private].
+ 14: free oprf_key: key [private].
+ 15: free secretData: bitstring [private].
+ 16: free server_identity: identity.
+ 17: free client_identity: identity.
+ 18: 
+ 19: (* Authentication keys *)
+ 20: free server_static: key [private].
+ 21: free client_static: key [private].
+ 22: 
+ 23: (* One-way transformation function - defined FIRST *)
+ 24: fun F(key, key): key.
+ 25: 
+ 26: (* OPRF functionality *)
+ 27: fun blind(key): blinded_value.
+ 28: fun evaluate(blinded_value, key): element.
+ 29: fun unblind(element, key): key.
+ 30: 
+ 31: (* OPRF property - password never exposed to server *)
+ 32: equation forall pwd: key, k: key;
+ 33:     unblind(evaluate(blind(pwd), k), pwd) = F(pwd, k).
+ 34: 
+ 35: (* Authentication *)
+ 36: fun sign(bitstring, key): bitstring.
+ 37: fun pk(key): key.
+ 38: reduc forall m: bitstring, k: key; 
+ 39:     verify(sign(m, k), m, pk(k)) = true.
+ 40: 
+ 41: (* Diffie-Hellman *)
+ 42: fun DH_pub(key): key.
+ 43: fun DH(key, key): key.
+ 44: equation forall x:key, y:key; 
+ 45:     DH(DH_pub(x), y) = DH(DH_pub(y), x).
+ 46: 
+ 47: (* Encryption *)
+ 48: fun senc(bitstring, key): bitstring.
+ 49: reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+ 50: 
+ 51: (* Key derivation with 3DH *)
+ 52: fun kdf3(key, key, key, key): key.
+ 53: 
+ 54: (* Events *)
+ 55: event ClientSendsBlind(identity, blinded_value).
+ 56: event ServerProcessesBlind(identity, element).
+ 57: event ClientCompletesKE(identity, key).
+ 58: event ServerCompletesKE(identity, key).
+ 59: 
+ 60: (* Security query *)
+ 61: query attacker(secretData).
+ 62: 
+ 63: (* AUTHENTICATION PHASE *)
+ 64: let client =
+ 65:     (* Client blinds password *)
+ 66:     let blind_val = blind(password) in
+ 67:     event ClientSendsBlind(client_identity, blind_val);
+ 68:     out(c, (client_identity, blind_val));
+ 69:     
+ 70:     (* Client receives server response *)
+ 71:     in(c, (server_id: identity, eval_blind: element, 
+ 72:           server_sig: bitstring, server_pub_s: key, server_pub_e: key));
+ 73:     
+ 74:     (* Verify server signature on ALL critical parameters *)
+ 75:     if verify(server_sig, (client_identity, server_id, eval_blind, 
+ 76:                           server_pub_s, server_pub_e), pk(server_static)) then (
+ 77:         
+ 78:         (* Client unblinds to get K' *)
+ 79:         let K_prime = unblind(eval_blind, password) in
+ 80:         
+ 81:         (* Generate client ephemeral key *)
+ 82:         new client_ephemeral: key;
+ 83:         let client_pub_e = DH_pub(client_ephemeral) in
+ 84:         
+ 85:         (* Client authentication response with signature *)
+ 86:         let client_sig = sign((server_id, client_identity, 
+ 87:                               pk(client_static), client_pub_e), client_static) in
+ 88:         
+ 89:         (* Send client response *)
+ 90:         out(c, (pk(client_static), client_pub_e, client_sig));
+ 91:         
+ 92:         (* 3DH key components *)
+ 93:         let dh1 = DH(server_pub_s, client_static) in
+ 94:         let dh2 = DH(server_pub_e, client_static) in
+ 95:         let dh3 = DH(server_pub_e, client_ephemeral) in
+ 96:         
+ 97:         (* Derive session key using 3DH pattern *)
+ 98:         let sessionKey = kdf3(K_prime, dh1, dh2, dh3) in
+ 99:         
+100:         event ClientCompletesKE(client_identity, sessionKey);
+101:         
+102:         (* Use session key for secure communication *)
+103:         out(c, senc(secretData, sessionKey));
+104:         
+105:         (* Phase 1: Compromise phase *)
+106:         phase 1;
+107:         out(c, password);
+108:         out(c, client_static);
+109:         out(c, server_static);
+110:         out(c, oprf_key)
+111:     ).
+112: 
+113: let server =
+114:     (* Server receives blinded password *)
+115:     in(c, (client_id: identity, blind_val: blinded_value));
+116:     
+117:     (* Server evaluates blind using OPRF key *)
+118:     let eval_blind = evaluate(blind_val, oprf_key) in
+119:     event ServerProcessesBlind(client_id, eval_blind);
+120:     
+121:     (* Generate ephemeral key *)
+122:     new server_ephemeral: key;
+123:     let server_pub_e = DH_pub(server_ephemeral) in
+124:     let server_pub_s = pk(server_static) in
+125:     
+126:     (* Server signature includes ALL key exchange parameters *)
+127:     let server_sig = sign((client_id, server_identity, eval_blind, 
+128:                           server_pub_s, server_pub_e), server_static) in
+129:     
+130:     (* Send server response *)
+131:     out(c, (server_identity, eval_blind, server_sig, server_pub_s, server_pub_e));
+132:     
+133:     (* Receive client response *)
+134:     in(c, (client_pub_s: key, client_pub_e: key, client_sig: bitstring));
+135:     
+136:     (* Verify client signature *)
+137:     if verify(client_sig, (server_identity, client_id, 
+138:                          client_pub_s, client_pub_e), client_pub_s) then (
+139:         
+140:         (* 3DH key components *)
+141:         let dh1 = DH(client_pub_s, server_static) in
+142:         let dh2 = DH(client_pub_s, server_ephemeral) in
+143:         let dh3 = DH(client_pub_e, server_ephemeral) in
+144:         
+145:         (* Server derives the same session key *)
+146:         let serverSessionKey = kdf3(F(password, oprf_key), dh1, dh2, dh3) in
+147:         
+148:         event ServerCompletesKE(server_identity, serverSessionKey);
+149:         
+150:         (* Receive encrypted message *)
+151:         in(c, encrypted_msg: bitstring)
+152:     ).
+153: 
+154: (* Main process *)
+155: process
+156:     client | server
+
+# ----------------------------------------
+# Summary:
+# - Total lines: 156
+# - Type declarations: 4
+# - Function declarations: 10
+# - Events: 8
+# - Processes: 18

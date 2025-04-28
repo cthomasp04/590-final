@@ -1,0 +1,90 @@
+(* Key Transformation Protocol with Forward Secrecy Testing *)
+
+(* Channels *)
+free c: channel.
+free secure_c: channel [private].
+
+(* Types *)
+type key.
+type nonce.
+
+(* Secret keys and data *)
+free K: key [private].
+free authKey: key [private].
+free secretData: bitstring [private].
+
+(* Cryptographic primitives *)
+fun F(key): key.
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+fun key2bit(key): bitstring.
+fun nonce2bit(nonce): bitstring.
+fun mac(bitstring, key): bitstring.
+fun deriveKey(key, nonce): key.
+
+(* Events for protocol execution tracking *)
+event AliceTransformsKey(key, key).
+event BobReceivesKey(key).
+event SessionKeyCreated(key, nonce).
+event SecureCommsEstablished(key, nonce).
+
+(* Security queries *)
+(* This will be false in phase 0, true in phase 1 *)
+query attacker(K).
+
+(* This should remain false in all phases if forward secrecy holds *)
+query attacker(secretData).
+
+(* Alice process *)
+let alice =
+    (* Alice applies transformation F to original key K *)
+    let K_prime = F(K) in
+    event AliceTransformsKey(K, K_prime);
+    
+    (* Generate a fresh nonce for this session *)
+    new aliceNonce: nonce;
+    
+    (* Send K' over a secure channel *)
+    out(secure_c, K_prime);
+    
+    (* Authenticate the nonce *)
+    let auth_tag = mac(nonce2bit(aliceNonce), authKey) in
+    out(c, (aliceNonce, auth_tag));
+    
+    (* Alice derives a session key using K' and the nonce *)
+    let sessionKey = deriveKey(K_prime, aliceNonce) in
+    event SessionKeyCreated(K_prime, aliceNonce);
+    
+    (* Alice sends an encrypted message using the session key *)
+    out(c, senc(secretData, sessionKey));
+    
+    (* Move to phase 1 where we leak the key *)
+    phase 1;
+    
+    (* In phase 1, leak the long-term key K *)
+    out(c, K).
+
+(* Bob process *)
+let bob =
+    (* Bob receives K' over secure channel *)
+    in(secure_c, k_received: key);
+    
+    (* Bob receives the authenticated nonce *)
+    in(c, (receivedNonce: nonce, tag: bitstring));
+    
+    (* Bob verifies the authentication tag *)
+    if tag = mac(nonce2bit(receivedNonce), authKey) then (
+        event BobReceivesKey(k_received);
+        
+        (* Bob derives the session key using K' and the nonce *)
+        let sessionKey = deriveKey(k_received, receivedNonce) in
+        
+        (* Bob receives and decrypts the message *)
+        in(c, encrypted_msg: bitstring);
+        let msg = sdec(encrypted_msg, sessionKey) in
+        event SecureCommsEstablished(k_received, receivedNonce)
+    ).
+
+(* Main process: Alice and Bob execute in parallel *)
+process
+    alice | bob

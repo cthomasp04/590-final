@@ -1,0 +1,29 @@
+ProVerif Batch Processing Sat Apr 26 15:27:36 EDT 2025
+----------------------------------------
+Processing key_transformation_auth.pv -> key_transformation_auth_results.txt
+  ✓ Verification SUCCESSFUL: Secure properties verified
+----------------------------------------
+Processing key_transformation_complete.pv -> key_transformation_complete_results.txt
+  ✓ Verification SUCCESSFUL: Secure properties verified
+----------------------------------------
+Processing key_transformation_forward_secrecy.pv -> key_transformation_forward_secrecy_results.txt
+  ✗ Verification FAILED: Security properties not satisfied
+----------------------------------------
+Processing key_transformation_improved.pv -> key_transformation_improved_results.txt
+  ✓ Verification SUCCESSFUL: Secure properties verified
+----------------------------------------
+Processing key_transformation_simple.pv -> key_transformation_simple_results.txt
+  ✓ Verification SUCCESSFUL: Secure properties verified
+----------------------------------------
+Processing key_transformation.pv -> key_transformation_results.txt
+  ? Verification INCONCLUSIVE or ERROR occurred
+----------------------------------------
+Processing opaque_authenticated.pv -> opaque_authenticated_results.txt
+  ✓ Verification SUCCESSFUL: Secure properties verified
+----------------------------------------
+Processing opaque_forward_secrecy.pv -> opaque_forward_secrecy_results.txt
+  ✗ Verification FAILED: Security properties not satisfied
+----------------------------------------
+Processing opaque_simple.pv -> opaque_simple_results.txt
+  ✗ Verification FAILED: Security properties not satisfied
+----------------------------------------

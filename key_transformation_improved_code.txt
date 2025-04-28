@@ -1,0 +1,96 @@
+# ProVerif Model: key_transformation_improved.pv
+# Generated on: Sat Apr 26 15:32:17 EDT 2025
+# ----------------------------------------
+
+  1: (* Improved Key Transformation Protocol Model *)
+  2: free c: channel.
+  3: 
+  4: (* Types *)
+  5: type key.
+  6: type nonce.
+  7: 
+  8: (* Secret keys and data *)
+  9: free K: key [private].
+ 10: free authKey: key [private].
+ 11: free secretData: bitstring [private].
+ 12: 
+ 13: (* Add secure channel for K' *)
+ 14: free secure_c: channel [private].
+ 15: 
+ 16: (* Cryptographic primitives *)
+ 17: fun F(key): key.
+ 18: fun senc(bitstring, key): bitstring.
+ 19: reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+ 20: fun key2bit(key): bitstring.
+ 21: fun nonce2bit(nonce): bitstring. (* Added conversion function for nonces *)
+ 22: fun mac(bitstring, key): bitstring.
+ 23: fun deriveKey(key, nonce): key. (* Add nonce for key derivation *)
+ 24: fun hash(bitstring): bitstring.
+ 25: 
+ 26: (* Events for protocol execution tracking *)
+ 27: event AliceTransformsKey(key, key).
+ 28: event BobReceivesKey(key).
+ 29: event SessionKeyCreated(key, nonce).
+ 30: event SecureCommsEstablished(key, nonce).
+ 31: 
+ 32: (* Security queries *)
+ 33: query attacker(K).
+ 34: query attacker(secretData).
+ 35: query x: key; event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K, x)).
+ 36: query k: key, n: nonce; event(SecureCommsEstablished(k, n)) ==> event(SessionKeyCreated(k, n)).
+ 37: 
+ 38: (* Alice process *)
+ 39: let alice =
+ 40:     (* Alice applies transformation F to original key K *)
+ 41:     let K_prime = F(K) in
+ 42:     event AliceTransformsKey(K, K_prime);
+ 43:     
+ 44:     (* Generate a fresh nonce for this session *)
+ 45:     new aliceNonce: nonce;
+ 46:     
+ 47:     (* Send K' over a secure channel and nonce over public channel *)
+ 48:     out(secure_c, K_prime); (* Use secure channel for K' *)
+ 49:     
+ 50:     (* Authenticate the nonce *)
+ 51:     let auth_tag = mac(nonce2bit(aliceNonce), authKey) in (* Fixed: using nonce2bit *)
+ 52:     out(c, (aliceNonce, auth_tag));
+ 53:     
+ 54:     (* Alice derives a session key using K' and the nonce *)
+ 55:     let sessionKey = deriveKey(K_prime, aliceNonce) in
+ 56:     event SessionKeyCreated(K_prime, aliceNonce);
+ 57:     
+ 58:     (* Alice sends an encrypted message using the session key *)
+ 59:     out(c, senc(secretData, sessionKey)).
+ 60: 
+ 61: (* Bob process *)
+ 62: let bob =
+ 63:     (* Bob receives K' over secure channel *)
+ 64:     in(secure_c, k_received: key);
+ 65:     
+ 66:     (* Bob receives the authenticated nonce *)
+ 67:     in(c, (receivedNonce: nonce, tag: bitstring));
+ 68:     
+ 69:     (* Bob verifies the authentication tag *)
+ 70:     if tag = mac(nonce2bit(receivedNonce), authKey) then ( (* Fixed: using nonce2bit *)
+ 71:         event BobReceivesKey(k_received);
+ 72:         
+ 73:         (* Bob derives the session key using K' and the nonce *)
+ 74:         let sessionKey = deriveKey(k_received, receivedNonce) in
+ 75:         
+ 76:         (* Bob receives and decrypts the message *)
+ 77:         in(c, encrypted_msg: bitstring);
+ 78:         let msg = sdec(encrypted_msg, sessionKey) in
+ 79:         event SecureCommsEstablished(k_received, receivedNonce)
+ 80:     ).
+ 81: 
+ 82: (* Main process: Alice and Bob execute in parallel *)
+ 83: process
+ 84:     alice | bob
+
+# ----------------------------------------
+# Summary:
+# - Total lines: 84
+# - Type declarations: 2
+# - Function declarations: 7
+# - Events: 8
+# - Processes: 7

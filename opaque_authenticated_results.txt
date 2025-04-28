@@ -1,0 +1,109 @@
+Linear part:
+DH(DH_pub(x),y) = DH(DH_pub(y),x)
+Completing equations...
+Completed equations:
+DH(DH_pub(x),y) = DH(DH_pub(y),x)
+Convergent part:
+unblind(evaluate(blind(pwd),k),pwd) = F(pwd,k)
+Completing equations...
+Completed equations:
+unblind(evaluate(blind(pwd),k),pwd) = F(pwd,k)
+Process 0 (that is, the initial process):
+(
+    {1}let blind_val: blinded_value = blind(password) in
+    {2}event ClientSendsBlind(client_identity,blind_val);
+    {3}out(c, (client_identity,blind_val));
+    {4}in(c, (server_id: identity,eval_blind: element,server_sig: bitstring,server_pub_s: key,server_pub_e: key));
+    {5}if verify(server_sig,(client_identity,server_id,eval_blind,server_pub_s,server_pub_e),pk(server_static)) then
+    {6}let K_prime: key = unblind(eval_blind,password) in
+    {7}new client_ephemeral: key;
+    {8}let client_pub_e: key = DH_pub(client_ephemeral) in
+    {9}let client_sig: bitstring = sign((server_id,client_identity,pk(client_static),client_pub_e),client_static) in
+    {10}out(c, (pk(client_static),client_pub_e,client_sig));
+    {11}let dh1: key = DH(server_pub_s,client_static) in
+    {12}let dh2: key = DH(server_pub_e,client_static) in
+    {13}let dh3: key = DH(server_pub_e,client_ephemeral) in
+    {14}let sessionKey: key = kdf3(K_prime,dh1,dh2,dh3) in
+    {15}event ClientCompletesKE(client_identity,sessionKey);
+    {16}out(c, senc(secretData,sessionKey));
+    {17}phase 1;
+    {18}out(c, password);
+    {19}out(c, client_static);
+    {20}out(c, server_static);
+    {21}out(c, oprf_key)
+) | (
+    {22}in(c, (client_id: identity,blind_val_1: blinded_value));
+    {23}let eval_blind_1: element = evaluate(blind_val_1,oprf_key) in
+    {24}event ServerProcessesBlind(client_id,eval_blind_1);
+    {25}new server_ephemeral: key;
+    {26}let server_pub_e_1: key = DH_pub(server_ephemeral) in
+    {27}let server_pub_s_1: key = pk(server_static) in
+    {28}let server_sig_1: bitstring = sign((client_id,server_identity,eval_blind_1,server_pub_s_1,server_pub_e_1),server_static) in
+    {29}out(c, (server_identity,eval_blind_1,server_sig_1,server_pub_s_1,server_pub_e_1));
+    {30}in(c, (client_pub_s: key,client_pub_e_1: key,client_sig_1: bitstring));
+    {31}if verify(client_sig_1,(server_identity,client_id,client_pub_s,client_pub_e_1),client_pub_s) then
+    {32}let dh1_1: key = DH(client_pub_s,server_static) in
+    {33}let dh2_1: key = DH(client_pub_s,server_ephemeral) in
+    {34}let dh3_1: key = DH(client_pub_e_1,server_ephemeral) in
+    {35}let serverSessionKey: key = kdf3(F(password,oprf_key),dh1_1,dh2_1,dh3_1) in
+    {36}event ServerCompletesKE(server_identity,serverSessionKey);
+    {37}in(c, encrypted_msg: bitstring)
+)
+
+--  Process 1 (that is, process 0, with let moved downwards):
+(
+    {1}let blind_val: blinded_value = blind(password) in
+    {2}event ClientSendsBlind(client_identity,blind_val);
+    {3}out(c, (client_identity,blind_val));
+    {4}in(c, (server_id: identity,eval_blind: element,server_sig: bitstring,server_pub_s: key,server_pub_e: key));
+    {5}if verify(server_sig,(client_identity,server_id,eval_blind,server_pub_s,server_pub_e),pk(server_static)) then
+    {7}new client_ephemeral: key;
+    {8}let client_pub_e: key = DH_pub(client_ephemeral) in
+    {9}let client_sig: bitstring = sign((server_id,client_identity,pk(client_static),client_pub_e),client_static) in
+    {10}out(c, (pk(client_static),client_pub_e,client_sig));
+    {13}let dh3: key = DH(server_pub_e,client_ephemeral) in
+    {12}let dh2: key = DH(server_pub_e,client_static) in
+    {11}let dh1: key = DH(server_pub_s,client_static) in
+    {6}let K_prime: key = unblind(eval_blind,password) in
+    {14}let sessionKey: key = kdf3(K_prime,dh1,dh2,dh3) in
+    {15}event ClientCompletesKE(client_identity,sessionKey);
+    {16}out(c, senc(secretData,sessionKey));
+    {17}phase 1;
+    {18}out(c, password);
+    {19}out(c, client_static);
+    {20}out(c, server_static);
+    {21}out(c, oprf_key)
+) | (
+    {22}in(c, (client_id: identity,blind_val_1: blinded_value));
+    {23}let eval_blind_1: element = evaluate(blind_val_1,oprf_key) in
+    {24}event ServerProcessesBlind(client_id,eval_blind_1);
+    {25}new server_ephemeral: key;
+    {27}let server_pub_s_1: key = pk(server_static) in
+    {26}let server_pub_e_1: key = DH_pub(server_ephemeral) in
+    {28}let server_sig_1: bitstring = sign((client_id,server_identity,eval_blind_1,server_pub_s_1,server_pub_e_1),server_static) in
+    {29}out(c, (server_identity,eval_blind_1,server_sig_1,server_pub_s_1,server_pub_e_1));
+    {30}in(c, (client_pub_s: key,client_pub_e_1: key,client_sig_1: bitstring));
+    {31}if verify(client_sig_1,(server_identity,client_id,client_pub_s,client_pub_e_1),client_pub_s) then
+    {34}let dh3_1: key = DH(client_pub_e_1,server_ephemeral) in
+    {33}let dh2_1: key = DH(client_pub_s,server_ephemeral) in
+    {32}let dh1_1: key = DH(client_pub_s,server_static) in
+    {35}let serverSessionKey: key = kdf3(F(password,oprf_key),dh1_1,dh2_1,dh3_1) in
+    {36}event ServerCompletesKE(server_identity,serverSessionKey);
+    {37}in(c, encrypted_msg: bitstring)
+)
+
+-- Query not attacker_p1(secretData[]) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 149 rules (55 with conclusion selected). Queue: 30 rules.
+400 rules inserted. Base: 315 rules (73 with conclusion selected). Queue: 29 rules.
+Starting query not attacker_p1(secretData[])
+RESULT not attacker_p1(secretData[]) is true.
+
+--------------------------------------------------------------
+Verification summary:
+
+Query not attacker_p1(secretData[]) is true.
+
+--------------------------------------------------------------
+

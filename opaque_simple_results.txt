@@ -1,0 +1,184 @@
+Linear part:
+DH(DH_pub(x),y) = DH(DH_pub(y),x)
+Completing equations...
+Completed equations:
+DH(DH_pub(x),y) = DH(DH_pub(y),x)
+Convergent part:
+unblind(evaluate(blind(pwd),k),pwd) = F(pwd,k)
+Completing equations...
+Completed equations:
+unblind(evaluate(blind(pwd),k),pwd) = F(pwd,k)
+Process 0 (that is, the initial process):
+(
+    {1}let blind_val: blinded_value = blind(password) in
+    {2}out(c, blind_val);
+    {3}in(c, eval_blind: element);
+    {4}let K_prime: key = unblind(eval_blind,password) in
+    {5}new client_ephemeral: key;
+    {6}out(c, DH_pub(client_ephemeral));
+    {7}in(c, server_pub: key);
+    {8}let sessionKey: key = F(K_prime,DH(server_pub,client_ephemeral)) in
+    {9}out(c, senc(secretData,sessionKey));
+    {10}event SessionEstablished(sessionKey);
+    {11}phase 1;
+    {12}out(c, password);
+    {13}out(c, oprf_key)
+) | (
+    {14}in(c, blind_val_1: blinded_value);
+    {15}let eval_blind_1: element = evaluate(blind_val_1,oprf_key) in
+    {16}out(c, eval_blind_1);
+    {17}new server_ephemeral: key;
+    {18}in(c, client_pub: key);
+    {19}out(c, DH_pub(server_ephemeral));
+    {20}let serverSessionKey: key = F(F(password,oprf_key),DH(client_pub,server_ephemeral)) in
+    {21}in(c, encrypted_msg: bitstring)
+)
+
+--  Process 1 (that is, process 0, with let moved downwards):
+(
+    {1}let blind_val: blinded_value = blind(password) in
+    {2}out(c, blind_val);
+    {3}in(c, eval_blind: element);
+    {5}new client_ephemeral: key;
+    {6}out(c, DH_pub(client_ephemeral));
+    {7}in(c, server_pub: key);
+    {4}let K_prime: key = unblind(eval_blind,password) in
+    {8}let sessionKey: key = F(K_prime,DH(server_pub,client_ephemeral)) in
+    {9}out(c, senc(secretData,sessionKey));
+    {10}event SessionEstablished(sessionKey);
+    {11}phase 1;
+    {12}out(c, password);
+    {13}out(c, oprf_key)
+) | (
+    {14}in(c, blind_val_1: blinded_value);
+    {15}let eval_blind_1: element = evaluate(blind_val_1,oprf_key) in
+    {16}out(c, eval_blind_1);
+    {17}new server_ephemeral: key;
+    {18}in(c, client_pub: key);
+    {19}out(c, DH_pub(server_ephemeral));
+    {21}in(c, encrypted_msg: bitstring)
+)
+
+-- Query not attacker_p1(secretData[]) in process 1.
+Translating the process into Horn clauses...
+Completing...
+200 rules inserted. Base: 180 rules (57 with conclusion selected). Queue: 48 rules.
+Starting query not attacker_p1(secretData[])
+goal reachable: attacker_p1(secretData[])
+
+Derivation:
+Abbreviations:
+client_ephemeral_1 = client_ephemeral[eval_blind = evaluate(blind(password[]),k)]
+
+1. The attacker has some term y.
+attacker(y).
+
+2. The attacker has some term k.
+attacker(k).
+
+3. The message blind(password[]) may be sent to the attacker at output {2}.
+attacker(blind(password[])).
+
+4. By 3, the attacker may know blind(password[]).
+By 2, the attacker may know k.
+Using the function evaluate the attacker may obtain evaluate(blind(password[]),k).
+attacker(evaluate(blind(password[]),k)).
+
+5. The message evaluate(blind(password[]),k) that the attacker may have by 4 may be received at input {3}.
+So the message DH_pub(client_ephemeral_1) may be sent to the attacker at output {6}.
+attacker(DH_pub(client_ephemeral_1)).
+
+6. By 5, the attacker may know DH_pub(client_ephemeral_1).
+By 1, the attacker may know y.
+Using the function DH the attacker may obtain DH(DH_pub(y),client_ephemeral_1).
+attacker(DH(DH_pub(y),client_ephemeral_1)).
+
+7. By 6, the attacker may know DH(DH_pub(y),client_ephemeral_1).
+So the attacker may know DH(DH_pub(y),client_ephemeral_1) in phase 1.
+attacker_p1(DH(DH_pub(y),client_ephemeral_1)).
+
+8. The attacker has some term eval_blind_2.
+attacker(eval_blind_2).
+
+9. The attacker has some term server_pub_1.
+attacker(server_pub_1).
+
+10. The message eval_blind_2 that the attacker may have by 8 may be received at input {3}.
+The message server_pub_1 that the attacker may have by 9 may be received at input {7}.
+So the message password[] may be sent to the attacker in phase 1 at output {12}.
+attacker_p1(password[]).
+
+11. By 4, the attacker may know evaluate(blind(password[]),k).
+So the attacker may know evaluate(blind(password[]),k) in phase 1.
+attacker_p1(evaluate(blind(password[]),k)).
+
+12. By 11, the attacker may know evaluate(blind(password[]),k) in phase 1.
+By 10, the attacker may know password[] in phase 1.
+Using the function unblind the attacker may obtain F(password[],k) in phase 1.
+attacker_p1(F(password[],k)).
+
+13. By 12, the attacker may know F(password[],k) in phase 1.
+By 7, the attacker may know DH(DH_pub(y),client_ephemeral_1) in phase 1.
+Using the function F the attacker may obtain F(F(password[],k),DH(DH_pub(y),client_ephemeral_1)) in phase 1.
+attacker_p1(F(F(password[],k),DH(DH_pub(y),client_ephemeral_1))).
+
+14. By 1, the attacker may know y.
+Using the function DH_pub the attacker may obtain DH_pub(y).
+attacker(DH_pub(y)).
+
+15. The message evaluate(blind(password[]),k) that the attacker may have by 4 may be received at input {3}.
+The message DH_pub(y) that the attacker may have by 14 may be received at input {7}.
+So the message senc(secretData[],F(F(password[],k),DH(DH_pub(y),client_ephemeral_1))) may be sent to the attacker at output {9}.
+attacker(senc(secretData[],F(F(password[],k),DH(DH_pub(y),client_ephemeral_1)))).
+
+16. By 15, the attacker may know senc(secretData[],F(F(password[],k),DH(DH_pub(y),client_ephemeral_1))).
+So the attacker may know senc(secretData[],F(F(password[],k),DH(DH_pub(y),client_ephemeral_1))) in phase 1.
+attacker_p1(senc(secretData[],F(F(password[],k),DH(DH_pub(y),client_ephemeral_1)))).
+
+17. By 16, the attacker may know senc(secretData[],F(F(password[],k),DH(DH_pub(y),client_ephemeral_1))) in phase 1.
+By 13, the attacker may know F(F(password[],k),DH(DH_pub(y),client_ephemeral_1)) in phase 1.
+Using the function sdec the attacker may obtain secretData[] in phase 1.
+attacker_p1(secretData[]).
+
+18. By 17, attacker_p1(secretData[]).
+The goal is reached, represented in the following fact:
+attacker_p1(secretData[]).
+
+
+Unified server_pub_1 with DH_pub(y)
+Unified eval_blind_2 with evaluate(blind(password[]),k)
+The clause after UnifyDerivationPrecise is
+attacker_p1(secretData[])
+This clause still contradicts the query.
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+out(c, ~M) with ~M = blind(password) at {2}
+
+in(c, evaluate(~M,a)) with evaluate(~M,a) = evaluate(blind(password),a) at {3}
+
+new client_ephemeral: key creating client_ephemeral_2 at {5}
+
+out(c, ~M_1) with ~M_1 = DH_pub(client_ephemeral_2) at {6}
+
+in(c, DH_pub(a_1)) at {7}
+
+out(c, ~M_2) with ~M_2 = senc(secretData,F(unblind(evaluate(blind(password),a),password),DH(DH_pub(a_1),client_ephemeral_2))) at {9}
+
+event SessionEstablished(F(unblind(evaluate(blind(password),a),password),DH(DH_pub(a_1),client_ephemeral_2))) at {10}
+
+out(c, ~M_3) with ~M_3 = password at {12}
+
+out(c, ~M_4) with ~M_4 = oprf_key at {13}
+
+The attacker has the message sdec(~M_2,F(unblind(evaluate(~M,a),~M_3),DH(~M_1,a_1))) = secretData in phase 1.
+A trace has been found.
+RESULT not attacker_p1(secretData[]) is false.
+
+--------------------------------------------------------------
+Verification summary:
+
+Query not attacker_p1(secretData[]) is false.
+
+--------------------------------------------------------------
+

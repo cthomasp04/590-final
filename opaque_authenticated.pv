@@ -1,0 +1,156 @@
+(* Simplified but accurate OPAQUE Protocol Model *)
+
+(* Channels *)
+free c: channel.
+
+(* Types *)
+type key.
+type blinded_value.
+type element.
+type identity.
+
+(* Long-term keys and data *)
+free password: key [private].
+free oprf_key: key [private].
+free secretData: bitstring [private].
+free server_identity: identity.
+free client_identity: identity.
+
+(* Authentication keys *)
+free server_static: key [private].
+free client_static: key [private].
+
+(* One-way transformation function - defined FIRST *)
+fun F(key, key): key.
+
+(* OPRF functionality *)
+fun blind(key): blinded_value.
+fun evaluate(blinded_value, key): element.
+fun unblind(element, key): key.
+
+(* OPRF property - password never exposed to server *)
+equation forall pwd: key, k: key;
+    unblind(evaluate(blind(pwd), k), pwd) = F(pwd, k).
+
+(* Authentication *)
+fun sign(bitstring, key): bitstring.
+fun pk(key): key.
+reduc forall m: bitstring, k: key; 
+    verify(sign(m, k), m, pk(k)) = true.
+
+(* Diffie-Hellman *)
+fun DH_pub(key): key.
+fun DH(key, key): key.
+equation forall x:key, y:key; 
+    DH(DH_pub(x), y) = DH(DH_pub(y), x).
+
+(* Encryption *)
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+
+(* Key derivation with 3DH *)
+fun kdf3(key, key, key, key): key.
+
+(* Events *)
+event ClientSendsBlind(identity, blinded_value).
+event ServerProcessesBlind(identity, element).
+event ClientCompletesKE(identity, key).
+event ServerCompletesKE(identity, key).
+
+(* Security query *)
+query attacker(secretData).
+
+(* AUTHENTICATION PHASE *)
+let client =
+    (* Client blinds password *)
+    let blind_val = blind(password) in
+    event ClientSendsBlind(client_identity, blind_val);
+    out(c, (client_identity, blind_val));
+    
+    (* Client receives server response *)
+    in(c, (server_id: identity, eval_blind: element, 
+          server_sig: bitstring, server_pub_s: key, server_pub_e: key));
+    
+    (* Verify server signature on ALL critical parameters *)
+    if verify(server_sig, (client_identity, server_id, eval_blind, 
+                          server_pub_s, server_pub_e), pk(server_static)) then (
+        
+        (* Client unblinds to get K' *)
+        let K_prime = unblind(eval_blind, password) in
+        
+        (* Generate client ephemeral key *)
+        new client_ephemeral: key;
+        let client_pub_e = DH_pub(client_ephemeral) in
+        
+        (* Client authentication response with signature *)
+        let client_sig = sign((server_id, client_identity, 
+                              pk(client_static), client_pub_e), client_static) in
+        
+        (* Send client response *)
+        out(c, (pk(client_static), client_pub_e, client_sig));
+        
+        (* 3DH key components *)
+        let dh1 = DH(server_pub_s, client_static) in
+        let dh2 = DH(server_pub_e, client_static) in
+        let dh3 = DH(server_pub_e, client_ephemeral) in
+        
+        (* Derive session key using 3DH pattern *)
+        let sessionKey = kdf3(K_prime, dh1, dh2, dh3) in
+        
+        event ClientCompletesKE(client_identity, sessionKey);
+        
+        (* Use session key for secure communication *)
+        out(c, senc(secretData, sessionKey));
+        
+        (* Phase 1: Compromise phase *)
+        phase 1;
+        out(c, password);
+        out(c, client_static);
+        out(c, server_static);
+        out(c, oprf_key)
+    ).
+
+let server =
+    (* Server receives blinded password *)
+    in(c, (client_id: identity, blind_val: blinded_value));
+    
+    (* Server evaluates blind using OPRF key *)
+    let eval_blind = evaluate(blind_val, oprf_key) in
+    event ServerProcessesBlind(client_id, eval_blind);
+    
+    (* Generate ephemeral key *)
+    new server_ephemeral: key;
+    let server_pub_e = DH_pub(server_ephemeral) in
+    let server_pub_s = pk(server_static) in
+    
+    (* Server signature includes ALL key exchange parameters *)
+    let server_sig = sign((client_id, server_identity, eval_blind, 
+                          server_pub_s, server_pub_e), server_static) in
+    
+    (* Send server response *)
+    out(c, (server_identity, eval_blind, server_sig, server_pub_s, server_pub_e));
+    
+    (* Receive client response *)
+    in(c, (client_pub_s: key, client_pub_e: key, client_sig: bitstring));
+    
+    (* Verify client signature *)
+    if verify(client_sig, (server_identity, client_id, 
+                         client_pub_s, client_pub_e), client_pub_s) then (
+        
+        (* 3DH key components *)
+        let dh1 = DH(client_pub_s, server_static) in
+        let dh2 = DH(client_pub_s, server_ephemeral) in
+        let dh3 = DH(client_pub_e, server_ephemeral) in
+        
+        (* Server derives the same session key *)
+        let serverSessionKey = kdf3(F(password, oprf_key), dh1, dh2, dh3) in
+        
+        event ServerCompletesKE(server_identity, serverSessionKey);
+        
+        (* Receive encrypted message *)
+        in(c, encrypted_msg: bitstring)
+    ).
+
+(* Main process *)
+process
+    client | server

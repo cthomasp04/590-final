@@ -1,0 +1,64 @@
+# ProVerif Model: key_transformation_auth.pv
+# Generated on: Sat Apr 26 15:32:17 EDT 2025
+# ----------------------------------------
+
+  1: (* Key Transformation Protocol with Authentication *)
+  2: free c: channel.
+  3: 
+  4: (* Types *)
+  5: type key.
+  6: type nonce.
+  7: 
+  8: (* Secret keys *)
+  9: free K: key [private].
+ 10: free authKey: key [private]. (* Shared authentication key *)
+ 11: 
+ 12: (* Cryptographic primitives *)
+ 13: fun F(key): key.
+ 14: fun senc(bitstring, key): bitstring.
+ 15: reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+ 16: 
+ 17: (* Function to convert key to bitstring for MAC calculation *)
+ 18: fun key2bit(key): bitstring.
+ 19: 
+ 20: (* MAC function *)
+ 21: fun mac(bitstring, key): bitstring. 
+ 22: 
+ 23: (* Events *)
+ 24: event KeyTransformed(key, key).
+ 25: event KeyReceived(key).
+ 26: event AuthBegin(key).
+ 27: event AuthEnd(key).
+ 28: 
+ 29: (* Security queries *)
+ 30: query attacker(K).
+ 31: query x: key; event(AuthEnd(x)) ==> event(AuthBegin(x)).
+ 32: 
+ 33: (* Alice process *)
+ 34: let alice =
+ 35:     let K_prime = F(K) in
+ 36:     event KeyTransformed(K, K_prime);
+ 37:     event AuthBegin(K_prime);
+ 38:     (* Authenticate the transformed key - convert K_prime to bitstring first *)
+ 39:     let auth_tag = mac(key2bit(K_prime), authKey) in
+ 40:     out(c, (K_prime, auth_tag)).
+ 41: 
+ 42: (* Bob process *)
+ 43: let bob =
+ 44:     in(c, (k_received: key, tag: bitstring));
+ 45:     (* Verify the authentication tag *)
+ 46:     if tag = mac(key2bit(k_received), authKey) then
+ 47:     event KeyReceived(k_received);
+ 48:     event AuthEnd(k_received).
+ 49: 
+ 50: (* Main process *)
+ 51: process
+ 52:     alice | bob
+
+# ----------------------------------------
+# Summary:
+# - Total lines: 52
+# - Type declarations: 2
+# - Function declarations: 4
+# - Events: 8
+# - Processes: 4

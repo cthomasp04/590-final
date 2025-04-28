@@ -1,0 +1,77 @@
+(* Minimal Multiple Keys Model *)
+free c: channel.
+free secure_c: channel [private].
+
+(* Types *)
+type key.
+type nonce.
+
+(* Secret keys and data *)
+free K1: key [private].
+free K2: key [private].
+free secretData1: bitstring [private].
+free secretData2: bitstring [private].
+
+(* Cryptographic primitives *)
+fun F(key): key.
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+
+(* Events *)
+event KeyTransformed1(key, key).
+event KeyTransformed2(key, key).
+event KeyReceived1(key).
+event KeyReceived2(key).
+
+(* Alice process *)
+let alice =
+    (* First key transformation *)
+    let K1_prime = F(K1) in
+    event KeyTransformed1(K1, K1_prime);
+    out(secure_c, K1_prime);
+    out(c, senc(secretData1, K1_prime));
+    
+    (* Second key transformation *)
+    let K2_prime = F(K2) in
+    event KeyTransformed2(K2, K2_prime);
+    out(secure_c, K2_prime);
+    out(c, senc(secretData2, K2_prime));
+    
+    (* Phase 1 transition *)
+    phase 1;
+    
+    (* Compromise K1 in phase 1 *)
+    out(c, K1).
+
+(* Bob process *)
+let bob =
+    (* Receive and use first key *)
+    in(secure_c, k_received1: key);
+    event KeyReceived1(k_received1);
+    in(c, encrypted_msg1: bitstring);
+    let msg1 = sdec(encrypted_msg1, k_received1) in
+    
+    (* Receive and use second key *)
+    in(secure_c, k_received2: key);
+    event KeyReceived2(k_received2);
+    in(c, encrypted_msg2: bitstring);
+    let msg2 = sdec(encrypted_msg2, k_received2) in
+    0.
+
+(* Main process *)
+process
+    alice | bob
+
+(* Basic security queries *)
+query attacker(K1).
+query attacker(K2).
+
+(* Phase 1 queries - separate from other queries *)
+query phase 1; attacker(K1).
+query phase 1; attacker(K2).
+query phase 1; attacker(secretData1).
+query phase 1; attacker(secretData2).
+
+(* Event correspondence queries *)
+query k:key; event(KeyReceived1(k)) ==> event(KeyTransformed1(K1,k)).
+query k:key; event(KeyReceived2(k)) ==> event(KeyTransformed2(K2,k)).

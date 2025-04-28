@@ -1,0 +1,94 @@
+(* Simplified OPAQUE Protocol Model *)
+
+(* Channels *)
+free c: channel.
+
+(* Types *)
+type key.
+type blinded_value.
+type element.
+
+(* Long-term keys and data *)
+free password: key [private].
+free oprf_key: key [private].
+free secretData: bitstring [private].
+
+(* Cryptographic primitives *)
+fun F(key, key): key.
+fun blind(key): blinded_value.
+fun evaluate(blinded_value, key): element.
+fun unblind(element, key): key.
+
+(* OPRF property *)
+equation forall pwd: key, k: key;
+    unblind(evaluate(blind(pwd), k), pwd) = F(pwd, k).
+
+(* Diffie-Hellman *)
+fun DH_pub(key): key.
+fun DH(key, key): key.
+equation forall x:key, y:key; 
+    DH(DH_pub(x), y) = DH(DH_pub(y), x).
+
+(* Encryption *)
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+
+(* Events *)
+event SessionEstablished(key).
+
+(* Security query *)
+query attacker(secretData).
+
+(* Client process *)
+let client =
+    (* Client blinds password *)
+    let blind_val = blind(password) in
+    out(c, blind_val);
+    
+    (* Client receives evaluated blind *)
+    in(c, eval_blind: element);
+    
+    (* Derive key material *)
+    let K_prime = unblind(eval_blind, password) in
+    
+    (* Generate ephemeral key *)
+    new client_ephemeral: key;
+    out(c, DH_pub(client_ephemeral));
+    
+    (* Receive server's public key *)
+    in(c, server_pub: key);
+    
+    (* Derive session key *)
+    let sessionKey = F(K_prime, DH(server_pub, client_ephemeral)) in
+    
+    (* Use session key *)
+    out(c, senc(secretData, sessionKey));
+    event SessionEstablished(sessionKey);
+    
+    (* Later phase - compromise *)
+    phase 1;
+    out(c, password);
+    out(c, oprf_key).
+
+(* Server process *)
+let server =
+    (* Process blind *)
+    in(c, blind_val: blinded_value);
+    let eval_blind = evaluate(blind_val, oprf_key) in
+    out(c, eval_blind);
+    
+    (* Generate ephemeral key *)
+    new server_ephemeral: key;
+    in(c, client_pub: key);
+    out(c, DH_pub(server_ephemeral));
+    
+    (* Server derives similar key *)
+    let serverSessionKey = F(F(password, oprf_key), 
+                            DH(client_pub, server_ephemeral)) in
+    
+    (* Receive encrypted message *)
+    in(c, encrypted_msg: bitstring).
+
+(* Main process *)
+process
+    client | server

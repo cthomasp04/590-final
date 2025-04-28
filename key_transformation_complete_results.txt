@@ -1,0 +1,173 @@
+Process 0 (that is, the initial process):
+(
+    {1}let K_prime: key = F(K) in
+    {2}event AliceTransformsKey(K,K_prime);
+    {3}let auth_tag: bitstring = mac(key2bit(K_prime),authKey) in
+    {4}out(c, (K_prime,auth_tag));
+    {5}let sessionKey: key = deriveKey(K_prime) in
+    {6}event SessionKeyCreated(sessionKey);
+    {7}out(c, senc(secretData,sessionKey))
+) | (
+    {8}in(c, (k_received: key,tag: bitstring));
+    {9}if (tag = mac(key2bit(k_received),authKey)) then
+    {10}event BobReceivesKey(k_received);
+    {11}let sessionKey_1: key = deriveKey(k_received) in
+    {12}in(c, encrypted_msg: bitstring);
+    {13}let msg: bitstring = sdec(encrypted_msg,sessionKey_1) in
+    {14}event SecureCommsEstablished(sessionKey_1)
+)
+
+--  Process 1 (that is, process 0, with let moved downwards):
+(
+    {1}let K_prime: key = F(K) in
+    {2}event AliceTransformsKey(K,K_prime);
+    {3}let auth_tag: bitstring = mac(key2bit(K_prime),authKey) in
+    {4}out(c, (K_prime,auth_tag));
+    {5}let sessionKey: key = deriveKey(K_prime) in
+    {6}event SessionKeyCreated(sessionKey);
+    {7}out(c, senc(secretData,sessionKey))
+) | (
+    {8}in(c, (k_received: key,tag: bitstring));
+    {9}if (tag = mac(key2bit(k_received),authKey)) then
+    {10}event BobReceivesKey(k_received);
+    {12}in(c, encrypted_msg: bitstring);
+    {11}let sessionKey_1: key = deriveKey(k_received) in
+    {13}let msg: bitstring = sdec(encrypted_msg,sessionKey_1) in
+    {14}event SecureCommsEstablished(sessionKey_1)
+)
+
+-- Query not attacker(K[]) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query not attacker(K[])
+RESULT not attacker(K[]) is true.
+-- Query not attacker(secretData[]) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query not attacker(secretData[])
+goal reachable: attacker(secretData[])
+
+Derivation:
+
+1. The message (F(K[]),mac(key2bit(F(K[])),authKey[])) may be sent to the attacker at output {4}.
+attacker((F(K[]),mac(key2bit(F(K[])),authKey[]))).
+
+2. By 1, the attacker may know (F(K[]),mac(key2bit(F(K[])),authKey[])).
+Using the function 1-proj-2-tuple the attacker may obtain F(K[]).
+attacker(F(K[])).
+
+3. By 2, the attacker may know F(K[]).
+Using the function deriveKey the attacker may obtain deriveKey(F(K[])).
+attacker(deriveKey(F(K[]))).
+
+4. The message senc(secretData[],deriveKey(F(K[]))) may be sent to the attacker at output {7}.
+attacker(senc(secretData[],deriveKey(F(K[])))).
+
+5. By 4, the attacker may know senc(secretData[],deriveKey(F(K[]))).
+By 3, the attacker may know deriveKey(F(K[])).
+Using the function sdec the attacker may obtain secretData[].
+attacker(secretData[]).
+
+6. By 5, attacker(secretData[]).
+The goal is reached, represented in the following fact:
+attacker(secretData[]).
+
+
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+event AliceTransformsKey(K,F(K)) at {2}
+
+out(c, (~M,~M_1)) with ~M = F(K), ~M_1 = mac(key2bit(F(K)),authKey) at {4}
+
+event SessionKeyCreated(deriveKey(F(K))) at {6}
+
+out(c, ~M_2) with ~M_2 = senc(secretData,deriveKey(F(K))) at {7}
+
+The attacker has the message sdec(~M_2,deriveKey(~M)) = secretData.
+A trace has been found.
+RESULT not attacker(secretData[]) is false.
+-- Query event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K[],x)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K[],x))
+goal reachable: b-event(AliceTransformsKey(K[],F(K[]))) -> event(BobReceivesKey(F(K[])))
+RESULT event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K[],x)) is true.
+-- Query event(SecureCommsEstablished(k)) ==> event(SessionKeyCreated(k)) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query event(SecureCommsEstablished(k)) ==> event(SessionKeyCreated(k))
+goal reachable: event(SecureCommsEstablished(deriveKey(F(K[]))))
+
+Derivation:
+
+1. The message (F(K[]),mac(key2bit(F(K[])),authKey[])) may be sent to the attacker at output {4}.
+attacker((F(K[]),mac(key2bit(F(K[])),authKey[]))).
+
+2. By 1, the attacker may know (F(K[]),mac(key2bit(F(K[])),authKey[])).
+Using the function 2-proj-2-tuple the attacker may obtain mac(key2bit(F(K[])),authKey[]).
+attacker(mac(key2bit(F(K[])),authKey[])).
+
+3. By 1, the attacker may know (F(K[]),mac(key2bit(F(K[])),authKey[])).
+Using the function 1-proj-2-tuple the attacker may obtain F(K[]).
+attacker(F(K[])).
+
+4. By 3, the attacker may know F(K[]).
+By 2, the attacker may know mac(key2bit(F(K[])),authKey[]).
+Using the function 2-tuple the attacker may obtain (F(K[]),mac(key2bit(F(K[])),authKey[])).
+attacker((F(K[]),mac(key2bit(F(K[])),authKey[]))).
+
+5. By 3, the attacker may know F(K[]).
+Using the function deriveKey the attacker may obtain deriveKey(F(K[])).
+attacker(deriveKey(F(K[]))).
+
+6. The attacker has some term msg_1.
+attacker(msg_1).
+
+7. By 6, the attacker may know msg_1.
+By 5, the attacker may know deriveKey(F(K[])).
+Using the function senc the attacker may obtain senc(msg_1,deriveKey(F(K[]))).
+attacker(senc(msg_1,deriveKey(F(K[])))).
+
+8. The message (F(K[]),mac(key2bit(F(K[])),authKey[])) that the attacker may have by 4 may be received at input {8}.
+The message senc(msg_1,deriveKey(F(K[]))) that the attacker may have by 7 may be received at input {12}.
+So event SecureCommsEstablished(deriveKey(F(K[]))) may be executed at {14}.
+event(SecureCommsEstablished(deriveKey(F(K[])))).
+
+9. By 8, event(SecureCommsEstablished(deriveKey(F(K[])))).
+The goal is reached, represented in the following fact:
+event(SecureCommsEstablished(deriveKey(F(K[])))).
+
+
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+event AliceTransformsKey(K,F(K)) at {2}
+
+out(c, (~M,~M_1)) with ~M = F(K), ~M_1 = mac(key2bit(F(K)),authKey) at {4}
+
+in(c, (~M,~M_1)) with ~M = F(K), ~M_1 = mac(key2bit(F(K)),authKey) at {8}
+
+event BobReceivesKey(F(K)) at {10}
+
+in(c, senc(a,deriveKey(~M))) with senc(a,deriveKey(~M)) = senc(a,deriveKey(F(K))) at {12}
+
+event SecureCommsEstablished(deriveKey(F(K))) at {14} (goal)
+
+The event SecureCommsEstablished(deriveKey(F(K))) is executed at {14}.
+A trace has been found.
+RESULT event(SecureCommsEstablished(k)) ==> event(SessionKeyCreated(k)) is false.
+
+--------------------------------------------------------------
+Verification summary:
+
+Query not attacker(K[]) is true.
+
+Query not attacker(secretData[]) is false.
+
+Query event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K[],x)) is true.
+
+Query event(SecureCommsEstablished(k)) ==> event(SessionKeyCreated(k)) is false.
+
+--------------------------------------------------------------
+

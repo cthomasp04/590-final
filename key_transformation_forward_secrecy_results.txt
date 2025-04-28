@@ -1,0 +1,162 @@
+Process 0 (that is, the initial process):
+(
+    {1}let K_prime: key = F(K) in
+    {2}event AliceTransformsKey(K,K_prime);
+    {3}new aliceNonce: nonce;
+    {4}out(secure_c, K_prime);
+    {5}let auth_tag: bitstring = mac(nonce2bit(aliceNonce),authKey) in
+    {6}out(c, (aliceNonce,auth_tag));
+    {7}let sessionKey: key = deriveKey(K_prime,aliceNonce) in
+    {8}event SessionKeyCreated(K_prime,aliceNonce);
+    {9}out(c, senc(secretData,sessionKey));
+    {10}phase 1;
+    {11}out(c, K)
+) | (
+    {12}in(secure_c, k_received: key);
+    {13}in(c, (receivedNonce: nonce,tag: bitstring));
+    {14}if (tag = mac(nonce2bit(receivedNonce),authKey)) then
+    {15}event BobReceivesKey(k_received);
+    {16}let sessionKey_1: key = deriveKey(k_received,receivedNonce) in
+    {17}in(c, encrypted_msg: bitstring);
+    {18}let msg: bitstring = sdec(encrypted_msg,sessionKey_1) in
+    {19}event SecureCommsEstablished(k_received,receivedNonce)
+)
+
+--  Process 1 (that is, process 0, with let moved downwards):
+(
+    {1}let K_prime: key = F(K) in
+    {2}event AliceTransformsKey(K,K_prime);
+    {3}new aliceNonce: nonce;
+    {4}out(secure_c, K_prime);
+    {5}let auth_tag: bitstring = mac(nonce2bit(aliceNonce),authKey) in
+    {6}out(c, (aliceNonce,auth_tag));
+    {8}event SessionKeyCreated(K_prime,aliceNonce);
+    {7}let sessionKey: key = deriveKey(K_prime,aliceNonce) in
+    {9}out(c, senc(secretData,sessionKey));
+    {10}phase 1;
+    {11}out(c, K)
+) | (
+    {12}in(secure_c, k_received: key);
+    {13}in(c, (receivedNonce: nonce,tag: bitstring));
+    {14}if (tag = mac(nonce2bit(receivedNonce),authKey)) then
+    {15}event BobReceivesKey(k_received);
+    {17}in(c, encrypted_msg: bitstring);
+    {16}let sessionKey_1: key = deriveKey(k_received,receivedNonce) in
+    {18}let msg: bitstring = sdec(encrypted_msg,sessionKey_1) in
+    {19}event SecureCommsEstablished(k_received,receivedNonce)
+)
+
+-- Query not attacker_p1(K[]) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query not attacker_p1(K[])
+goal reachable: attacker_p1(K[])
+
+Derivation:
+
+1. The message K[] may be sent to the attacker in phase 1 at output {11}.
+attacker_p1(K[]).
+
+2. By 1, attacker_p1(K[]).
+The goal is reached, represented in the following fact:
+attacker_p1(K[]).
+
+
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+event AliceTransformsKey(K,F(K)) at {2}
+
+new aliceNonce: nonce creating aliceNonce_1 at {3}
+
+out(secure_c, F(K)) at {4} received at {12}
+
+out(c, (~M,~M_1)) with ~M = aliceNonce_1, ~M_1 = mac(nonce2bit(aliceNonce_1),authKey) at {6}
+
+event SessionKeyCreated(F(K),aliceNonce_1) at {8}
+
+out(c, ~M_2) with ~M_2 = senc(secretData,deriveKey(F(K),aliceNonce_1)) at {9}
+
+out(c, ~M_3) with ~M_3 = K at {11}
+
+The attacker has the message ~M_3 = K in phase 1.
+A trace has been found.
+RESULT not attacker_p1(K[]) is false.
+-- Query not attacker_p1(secretData[]) in process 1.
+Translating the process into Horn clauses...
+Completing...
+Starting query not attacker_p1(secretData[])
+goal reachable: attacker_p1(secretData[])
+
+Derivation:
+
+1. The message (aliceNonce[],mac(nonce2bit(aliceNonce[]),authKey[])) may be sent to the attacker at output {6}.
+attacker((aliceNonce[],mac(nonce2bit(aliceNonce[]),authKey[]))).
+
+2. By 1, the attacker may know (aliceNonce[],mac(nonce2bit(aliceNonce[]),authKey[])).
+Using the function 1-proj-2-tuple the attacker may obtain aliceNonce[].
+attacker(aliceNonce[]).
+
+3. By 2, the attacker may know aliceNonce[].
+So the attacker may know aliceNonce[] in phase 1.
+attacker_p1(aliceNonce[]).
+
+4. The message K[] may be sent to the attacker in phase 1 at output {11}.
+attacker_p1(K[]).
+
+5. By 4, the attacker may know K[] in phase 1.
+Using the function F the attacker may obtain F(K[]) in phase 1.
+attacker_p1(F(K[])).
+
+6. By 5, the attacker may know F(K[]) in phase 1.
+By 3, the attacker may know aliceNonce[] in phase 1.
+Using the function deriveKey the attacker may obtain deriveKey(F(K[]),aliceNonce[]) in phase 1.
+attacker_p1(deriveKey(F(K[]),aliceNonce[])).
+
+7. The message senc(secretData[],deriveKey(F(K[]),aliceNonce[])) may be sent to the attacker at output {9}.
+attacker(senc(secretData[],deriveKey(F(K[]),aliceNonce[]))).
+
+8. By 7, the attacker may know senc(secretData[],deriveKey(F(K[]),aliceNonce[])).
+So the attacker may know senc(secretData[],deriveKey(F(K[]),aliceNonce[])) in phase 1.
+attacker_p1(senc(secretData[],deriveKey(F(K[]),aliceNonce[]))).
+
+9. By 8, the attacker may know senc(secretData[],deriveKey(F(K[]),aliceNonce[])) in phase 1.
+By 6, the attacker may know deriveKey(F(K[]),aliceNonce[]) in phase 1.
+Using the function sdec the attacker may obtain secretData[] in phase 1.
+attacker_p1(secretData[]).
+
+10. By 9, attacker_p1(secretData[]).
+The goal is reached, represented in the following fact:
+attacker_p1(secretData[]).
+
+
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+event AliceTransformsKey(K,F(K)) at {2}
+
+new aliceNonce: nonce creating aliceNonce_1 at {3}
+
+out(secure_c, F(K)) at {4} received at {12}
+
+out(c, (~M,~M_1)) with ~M = aliceNonce_1, ~M_1 = mac(nonce2bit(aliceNonce_1),authKey) at {6}
+
+event SessionKeyCreated(F(K),aliceNonce_1) at {8}
+
+out(c, ~M_2) with ~M_2 = senc(secretData,deriveKey(F(K),aliceNonce_1)) at {9}
+
+out(c, ~M_3) with ~M_3 = K at {11}
+
+The attacker has the message sdec(~M_2,deriveKey(F(~M_3),~M)) = secretData in phase 1.
+A trace has been found.
+RESULT not attacker_p1(secretData[]) is false.
+
+--------------------------------------------------------------
+Verification summary:
+
+Query not attacker_p1(K[]) is false.
+
+Query not attacker_p1(secretData[]) is false.
+
+--------------------------------------------------------------
+

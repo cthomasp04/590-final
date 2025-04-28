@@ -1,0 +1,34 @@
+(* Minimal Test *)
+free c: channel.
+free K1: key [private].
+free K2: key [private].
+
+(* Cryptographic primitives *)
+fun F(key): key.
+
+(* Events *)
+event KeyTransformed(key, key).
+event KeyReceived(key).
+
+(* Alice process *)
+let alice =
+    let K_prime = F(K1) in
+    event KeyTransformed(K1, K_prime);
+    out(c, K_prime).
+
+(* Bob process *)
+let bob =
+    in(c, k_received: key);
+    event KeyReceived(k_received).
+
+(* Phase transition *)
+let compromise = 
+    phase 1;
+    out(c, K1).
+
+(* Main process *)
+process
+    alice | bob | compromise
+
+(* Basic query *)
+query attacker(K1).

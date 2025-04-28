@@ -1,0 +1,72 @@
+(* Complete Key Transformation Protocol Model *)
+free c: channel.
+
+(* Types *)
+type key.
+type nonce.
+
+(* Secret keys and data *)
+free K: key [private].
+free authKey: key [private]. (* Shared authentication key *)
+free secretData: bitstring [private]. (* Secret message to protect *)
+
+(* Cryptographic primitives *)
+fun F(key): key.
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+
+(* Function to convert key to bitstring for MAC calculation *)
+fun key2bit(key): bitstring.
+fun mac(bitstring, key): bitstring.
+fun deriveKey(key): key.
+
+(* Events for protocol execution tracking *)
+event AliceTransformsKey(key, key).
+event BobReceivesKey(key).
+event SessionKeyCreated(key).
+event SecureCommsEstablished(key).
+
+(* Security queries - ALL QUERIES MUST BE AT TOP LEVEL *)
+query attacker(K). (* Original key remains secret *)
+query attacker(secretData). (* Secret data remains confidential *)
+query x: key; event(BobReceivesKey(x)) ==> event(AliceTransformsKey(K, x)). (* Authentication *)
+query k: key; event(SecureCommsEstablished(k)) ==> event(SessionKeyCreated(k)). (* Session key correspondence *)
+
+(* Alice process *)
+let alice =
+    (* Alice applies transformation F to original key K *)
+    let K_prime = F(K) in
+    event AliceTransformsKey(K, K_prime);
+    
+    (* Alice authenticates the transformed key *)
+    let auth_tag = mac(key2bit(K_prime), authKey) in
+    out(c, (K_prime, auth_tag));
+    
+    (* Alice derives a session key and starts secure communication *)
+    let sessionKey = deriveKey(K_prime) in
+    event SessionKeyCreated(sessionKey);
+    
+    (* Alice sends an encrypted message using the session key *)
+    out(c, senc(secretData, sessionKey)).
+
+(* Bob process *)
+let bob =
+    (* Bob receives the transformed key and authentication tag *)
+    in(c, (k_received: key, tag: bitstring));
+    
+    (* Bob verifies the authentication tag *)
+    if tag = mac(key2bit(k_received), authKey) then (
+        event BobReceivesKey(k_received);
+        
+        (* Bob derives the same session key *)
+        let sessionKey = deriveKey(k_received) in
+        
+        (* Bob receives and decrypts the message *)
+        in(c, encrypted_msg: bitstring);
+        let msg = sdec(encrypted_msg, sessionKey) in
+        event SecureCommsEstablished(sessionKey)
+    ).
+
+(* Main process: Alice and Bob execute in parallel *)
+process
+    alice | bob

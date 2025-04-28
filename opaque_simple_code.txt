@@ -1,0 +1,106 @@
+# ProVerif Model: opaque_simple.pv
+# Generated on: Sat Apr 26 15:32:17 EDT 2025
+# ----------------------------------------
+
+  1: (* Simplified OPAQUE Protocol Model *)
+  2: 
+  3: (* Channels *)
+  4: free c: channel.
+  5: 
+  6: (* Types *)
+  7: type key.
+  8: type blinded_value.
+  9: type element.
+ 10: 
+ 11: (* Long-term keys and data *)
+ 12: free password: key [private].
+ 13: free oprf_key: key [private].
+ 14: free secretData: bitstring [private].
+ 15: 
+ 16: (* Cryptographic primitives *)
+ 17: fun F(key, key): key.
+ 18: fun blind(key): blinded_value.
+ 19: fun evaluate(blinded_value, key): element.
+ 20: fun unblind(element, key): key.
+ 21: 
+ 22: (* OPRF property *)
+ 23: equation forall pwd: key, k: key;
+ 24:     unblind(evaluate(blind(pwd), k), pwd) = F(pwd, k).
+ 25: 
+ 26: (* Diffie-Hellman *)
+ 27: fun DH_pub(key): key.
+ 28: fun DH(key, key): key.
+ 29: equation forall x:key, y:key; 
+ 30:     DH(DH_pub(x), y) = DH(DH_pub(y), x).
+ 31: 
+ 32: (* Encryption *)
+ 33: fun senc(bitstring, key): bitstring.
+ 34: reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+ 35: 
+ 36: (* Events *)
+ 37: event SessionEstablished(key).
+ 38: 
+ 39: (* Security query *)
+ 40: query attacker(secretData).
+ 41: 
+ 42: (* Client process *)
+ 43: let client =
+ 44:     (* Client blinds password *)
+ 45:     let blind_val = blind(password) in
+ 46:     out(c, blind_val);
+ 47:     
+ 48:     (* Client receives evaluated blind *)
+ 49:     in(c, eval_blind: element);
+ 50:     
+ 51:     (* Derive key material *)
+ 52:     let K_prime = unblind(eval_blind, password) in
+ 53:     
+ 54:     (* Generate ephemeral key *)
+ 55:     new client_ephemeral: key;
+ 56:     out(c, DH_pub(client_ephemeral));
+ 57:     
+ 58:     (* Receive server's public key *)
+ 59:     in(c, server_pub: key);
+ 60:     
+ 61:     (* Derive session key *)
+ 62:     let sessionKey = F(K_prime, DH(server_pub, client_ephemeral)) in
+ 63:     
+ 64:     (* Use session key *)
+ 65:     out(c, senc(secretData, sessionKey));
+ 66:     event SessionEstablished(sessionKey);
+ 67:     
+ 68:     (* Later phase - compromise *)
+ 69:     phase 1;
+ 70:     out(c, password);
+ 71:     out(c, oprf_key).
+ 72: 
+ 73: (* Server process *)
+ 74: let server =
+ 75:     (* Process blind *)
+ 76:     in(c, blind_val: blinded_value);
+ 77:     let eval_blind = evaluate(blind_val, oprf_key) in
+ 78:     out(c, eval_blind);
+ 79:     
+ 80:     (* Generate ephemeral key *)
+ 81:     new server_ephemeral: key;
+ 82:     in(c, client_pub: key);
+ 83:     out(c, DH_pub(server_ephemeral));
+ 84:     
+ 85:     (* Server derives similar key *)
+ 86:     let serverSessionKey = F(F(password, oprf_key), 
+ 87:                             DH(client_pub, server_ephemeral)) in
+ 88:     
+ 89:     (* Receive encrypted message *)
+ 90:     in(c, encrypted_msg: bitstring).
+ 91: 
+ 92: (* Main process *)
+ 93: process
+ 94:     client | server
+
+# ----------------------------------------
+# Summary:
+# - Total lines: 94
+# - Type declarations: 3
+# - Function declarations: 7
+# - Events: 2
+# - Processes: 7

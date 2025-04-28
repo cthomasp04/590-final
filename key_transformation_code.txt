@@ -1,0 +1,86 @@
+# ProVerif Model: key_transformation.pv
+# Generated on: Sat Apr 26 15:32:17 EDT 2025
+# ----------------------------------------
+
+  1: (* Key Transformation Protocol Verification in ProVerif *)
+  2: (* Channels *)
+  3: free c: channel.
+  4: 
+  5: (* Types *)
+  6: type key.
+  7: type nonce.
+  8: 
+  9: (* Cryptographic primitives *)
+ 10: (* Secret key K that should remain confidential *)
+ 11: free K: key [private].
+ 12: 
+ 13: (* Transformation function F *)
+ 14: fun F(key): key.
+ 15: (* We model F as one-way; there is no inverse function *)
+ 16: 
+ 17: (* Additional cryptographic operations *)
+ 18: fun senc(bitstring, key): bitstring.  (* Symmetric encryption *)
+ 19: reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.  (* Symmetric decryption *)
+ 20: 
+ 21: fun concat(bitstring, bitstring): bitstring.  (* Concatenation operation *)
+ 22: reduc forall x: bitstring, y: bitstring; fst(concat(x, y)) = x.  (* Extract first component *)
+ 23: reduc forall x: bitstring, y: bitstring; snd(concat(x, y)) = y.  (* Extract second component *)
+ 24: 
+ 25: fun hash(bitstring): bitstring.  (* Hash function *)
+ 26: 
+ 27: (* This function models a derived key from the transformed key K' *)
+ 28: fun deriveKey(key): key.
+ 29: 
+ 30: (* Events to track protocol execution *)
+ 31: event AliceTransformsKey(key, key).
+ 32: event BobReceivesTransformedKey(key).
+ 33: event SecureCommsEstablished(key).
+ 34: 
+ 35: (* Security queries *)
+ 36: (* The main security property: the attacker should not be able to obtain the original key K *)
+ 37: query attacker(K).
+ 38: 
+ 39: (* Query to verify authentication properties *)
+ 40: query k1: key, k2: key; event(AliceTransformsKey(k1, k2)) ==> event(BobReceivesTransformedKey(k2)).
+ 41: 
+ 42: (* Verify the session key derived from K' remains secure *)
+ 43: query k: key; event(SecureCommsEstablished(k)) ==> not attacker(k).
+ 44: 
+ 45: (* Protocol processes *)
+ 46: let alice =
+ 47:     (* Alice knows the secret key K *)
+ 48:     (* She applies transformation F to get K' *)
+ 49:     let K_prime = F(K) in
+ 50:     (* Log the transformation event *)
+ 51:     event AliceTransformsKey(K, K_prime);
+ 52:     (* She sends K' over the public channel *)
+ 53:     out(c, K_prime);
+ 54:     (* Optional: demonstrating the use of K' in a protocol *)
+ 55:     new m: bitstring;
+ 56:     let sessionKey = deriveKey(K_prime) in
+ 57:     out(c, senc(m, sessionKey));
+ 58:     event SecureCommsEstablished(sessionKey).
+ 59: 
+ 60: let bob =
+ 61:     (* Bob receives K' *)
+ 62:     in(c, k_received: key);
+ 63:     (* Log the receipt of K' *)
+ 64:     event BobReceivesTransformedKey(k_received);
+ 65:     (* Bob derives a session key from K' *)
+ 66:     let sessionKey = deriveKey(k_received) in
+ 67:     (* Bob can now use the session key for secure communications *)
+ 68:     in(c, encrypted_msg: bitstring);
+ 69:     let m = sdec(encrypted_msg, sessionKey) in
+ 70:     event SecureCommsEstablished(sessionKey).
+ 71: 
+ 72: (* Main process: Alice and Bob run in parallel *)
+ 73: process
+ 74:     alice | bob
+
+# ----------------------------------------
+# Summary:
+# - Total lines: 74
+# - Type declarations: 2
+# - Function declarations: 5
+# - Events: 8
+# - Processes: 6

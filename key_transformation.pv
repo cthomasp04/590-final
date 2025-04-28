@@ -1,0 +1,74 @@
+(* Key Transformation Protocol Verification in ProVerif *)
+(* Channels *)
+free c: channel.
+
+(* Types *)
+type key.
+type nonce.
+
+(* Cryptographic primitives *)
+(* Secret key K that should remain confidential *)
+free K: key [private].
+
+(* Transformation function F *)
+fun F(key): key.
+(* We model F as one-way; there is no inverse function *)
+
+(* Additional cryptographic operations *)
+fun senc(bitstring, key): bitstring.  (* Symmetric encryption *)
+reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.  (* Symmetric decryption *)
+
+fun concat(bitstring, bitstring): bitstring.  (* Concatenation operation *)
+reduc forall x: bitstring, y: bitstring; fst(concat(x, y)) = x.  (* Extract first component *)
+reduc forall x: bitstring, y: bitstring; snd(concat(x, y)) = y.  (* Extract second component *)
+
+fun hash(bitstring): bitstring.  (* Hash function *)
+
+(* This function models a derived key from the transformed key K' *)
+fun deriveKey(key): key.
+
+(* Events to track protocol execution *)
+event AliceTransformsKey(key, key).
+event BobReceivesTransformedKey(key).
+event SecureCommsEstablished(key).
+
+(* Security queries *)
+(* The main security property: the attacker should not be able to obtain the original key K *)
+query attacker(K).
+
+(* Query to verify authentication properties *)
+query k1: key, k2: key; event(AliceTransformsKey(k1, k2)) ==> event(BobReceivesTransformedKey(k2)).
+
+(* Verify the session key derived from K' remains secure *)
+query k: key; event(SecureCommsEstablished(k)) ==> not attacker(k).
+
+(* Protocol processes *)
+let alice =
+    (* Alice knows the secret key K *)
+    (* She applies transformation F to get K' *)
+    let K_prime = F(K) in
+    (* Log the transformation event *)
+    event AliceTransformsKey(K, K_prime);
+    (* She sends K' over the public channel *)
+    out(c, K_prime);
+    (* Optional: demonstrating the use of K' in a protocol *)
+    new m: bitstring;
+    let sessionKey = deriveKey(K_prime) in
+    out(c, senc(m, sessionKey));
+    event SecureCommsEstablished(sessionKey).
+
+let bob =
+    (* Bob receives K' *)
+    in(c, k_received: key);
+    (* Log the receipt of K' *)
+    event BobReceivesTransformedKey(k_received);
+    (* Bob derives a session key from K' *)
+    let sessionKey = deriveKey(k_received) in
+    (* Bob can now use the session key for secure communications *)
+    in(c, encrypted_msg: bitstring);
+    let m = sdec(encrypted_msg, sessionKey) in
+    event SecureCommsEstablished(sessionKey).
+
+(* Main process: Alice and Bob run in parallel *)
+process
+    alice | bob

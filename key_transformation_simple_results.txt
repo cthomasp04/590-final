@@ -1,0 +1,49 @@
+Process 0 (that is, the initial process):
+(
+    {1}let K_prime: key = F(K) in
+    {2}event KeyTransformed(K,K_prime);
+    {3}out(c, K_prime)
+) | (
+    {4}in(c, k_received: key);
+    {5}event KeyReceived(k_received)
+)
+
+-- Query not attacker(K[]) in process 0.
+Translating the process into Horn clauses...
+Completing...
+Starting query not attacker(K[])
+RESULT not attacker(K[]) is true.
+-- Query event(KeyTransformed(x,y)) ==> event(KeyReceived(y)) in process 0.
+Translating the process into Horn clauses...
+Completing...
+Starting query event(KeyTransformed(x,y)) ==> event(KeyReceived(y))
+goal reachable: event(KeyTransformed(K[],F(K[])))
+
+Derivation:
+
+1. Event KeyTransformed(K[],F(K[])) may be executed at {2}.
+event(KeyTransformed(K[],F(K[]))).
+
+2. By 1, event(KeyTransformed(K[],F(K[]))).
+The goal is reached, represented in the following fact:
+event(KeyTransformed(K[],F(K[]))).
+
+
+A more detailed output of the traces is available with
+  set traceDisplay = long.
+
+event KeyTransformed(K,F(K)) at {2} (goal)
+
+The event KeyTransformed(K,F(K)) is executed at {2}.
+A trace has been found.
+RESULT event(KeyTransformed(x,y)) ==> event(KeyReceived(y)) is false.
+
+--------------------------------------------------------------
+Verification summary:
+
+Query not attacker(K[]) is true.
+
+Query event(KeyTransformed(x,y)) ==> event(KeyReceived(y)) is false.
+
+--------------------------------------------------------------
+

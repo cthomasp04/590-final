@@ -1,0 +1,58 @@
+(* Key Transformation Protocol - Multiple Keys Version *)
+(* Based directly on the working key_transformation_simple.pv model *)
+free c: channel.
+
+(* Types *)
+type key.
+
+(* Secret keys K1 and K2 that should remain confidential *)
+free K1: key [private].
+free K2: key [private].
+
+(* Transformation function F *)
+fun F(key): key.
+
+(* Events *)
+event KeyTransformed1(key, key).
+event KeyTransformed2(key, key).
+event KeyReceived1(key).
+event KeyReceived2(key).
+
+(* Basic cryptographic operations *)
+fun senc(bitstring, key): bitstring.
+reduc forall m: bitstring, k: key; sdec(senc(m, k), k) = m.
+
+(* Security queries *)
+query attacker(K1).
+query attacker(K2).
+
+(* Alice process - handles two keys *)
+let alice =
+    (* First key transformation *)
+    let K1_prime = F(K1) in
+    event KeyTransformed1(K1, K1_prime);
+    out(c, K1_prime);
+    
+    (* Second key transformation *)
+    let K2_prime = F(K2) in
+    event KeyTransformed2(K2, K2_prime);
+    out(c, K2_prime).
+
+(* Bob process - receives two keys *)
+let bob =
+    (* Receive first key *)
+    in(c, k_received1: key);
+    event KeyReceived1(k_received1);
+    
+    (* Receive second key *)
+    in(c, k_received2: key);
+    event KeyReceived2(k_received2).
+
+(* Phase transition process *)
+let compromise = 
+    phase 1;
+    out(c, K1).
+
+(* Main process *)
+process
+    alice | bob | compromise
